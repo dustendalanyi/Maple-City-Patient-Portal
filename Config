@@ -1,0 +1,13 @@
+// Fill these in from your Supabase project, then commit this file too.
+// Project Settings → API → "Project URL" and "anon public" key.
+//
+// It's expected and safe for this file to be public — the "anon" key is
+// designed to be visible in a website's front-end code. It can only ever
+// call the one narrow function this portal uses (get_patient_page), and
+// that function only ever returns one patient's row for an exact code
+// match. It cannot browse, list, or dump the patient_pages table — that's
+// enforced by the database itself (schema.sql), not by hiding this key.
+window.PORTAL_CONFIG = {
+  url: "https://YOUR-PROJECT-REF.supabase.co",
+  anonKey: "YOUR-ANON-PUBLIC-KEY"
+};
