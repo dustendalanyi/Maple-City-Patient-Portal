@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Syncing…</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:#faf7f0;color:#1c1a16;text-align:center;padding:24px}
+  @media (prefers-color-scheme: dark){ body{background:#0d0f14;color:#eae6dc} }
+  .box{max-width:340px}
+  .spinner{width:22px;height:22px;border:3px solid rgba(120,120,120,.25);border-top-color:#fbb52f;border-radius:99px;
+    display:inline-block;animation:spin .7s linear infinite;margin-bottom:14px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  h1{font-size:16px;margin:0 0 6px;font-weight:700}
+  p{margin:0;font-size:13px;opacity:.75}
+  h1.ok{color:#2f8f5b}
+  h1.err{color:#ab140a}
+</style>
+</head>
+<body>
+<div class="box">
+  <div id="spinner" class="spinner"></div>
+  <h1 id="title">Connecting to your clinic's app…</h1>
+  <p id="sub">You can leave this — it'll close on its own once the sync finishes.</p>
+</div>
+
+<!-- Supabase's client library — safe to load from a CDN on a normal website (this isn't a sandboxed Claude Artifact) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+  // config.js (next to this file) defines window.PORTAL_CONFIG = { url, anonKey }
+  var cfg = window.PORTAL_CONFIG || {};
+  var supabase = (cfg.url && cfg.anonKey && window.supabase)
+    ? window.supabase.createClient(cfg.url, cfg.anonKey)
+    : null;
+
+  var title = document.getElementById('title');
+  var sub = document.getElementById('sub');
+  var spinner = document.getElementById('spinner');
+
+  function setStatus(text, subText, cls){
+    title.textContent = text;
+    if (subText !== undefined) sub.textContent = subText;
+    if (cls){ spinner.style.display = 'none'; title.className = cls; }
+  }
+
+  if (!window.opener){
+    setStatus('This page is only used by the clinician app.', 'There’s nothing to do here on its own — you can close this tab.', 'err');
+    return;
+  }
+  if (!supabase){
+    setStatus('This portal isn’t fully set up yet.', 'config.js is missing its Supabase URL/key — contact the clinic.', 'err');
+    return;
+  }
+
+  var pingId = null;
+
+  window.addEventListener('message', async function(ev){
+    var d = ev.data || {};
+    if (d.type !== 'mchep-sync-request') return;
+    if (pingId){ clearInterval(pingId); pingId = null; }
+    setStatus('Syncing program…', 'Talking to the database now.');
+    try{
+      var res = await supabase.rpc('sync_patient_page', {
+        p_code: d.code, p_name: d.name, p_html: d.html, p_admin_key: d.adminKey
+      });
+      if (res.error){
+        setStatus('Sync failed.', res.error.message || 'The database rejected this update.', 'err');
+        try{ ev.source.postMessage({ type:'mchep-sync-result', ok:false, error: res.error.message }, ev.origin || '*'); }catch(e){}
+      } else {
+        setStatus('Synced!', 'You can close this window — it should close itself in a moment.', 'ok');
+        try{ ev.source.postMessage({ type:'mchep-sync-result', ok:true, code: d.code }, ev.origin || '*'); }catch(e){}
+        setTimeout(function(){ try{ window.close(); }catch(e){} }, 900);
+      }
+    }catch(e){
+      var msg = (e && e.message) || 'Something went wrong.';
+      setStatus('Sync failed.', msg, 'err');
+      try{ ev.source.postMessage({ type:'mchep-sync-result', ok:false, error: msg }, ev.origin || '*'); }catch(e2){}
+    }
+  });
+
+  // Tell the opener (the clinician app) that this window is ready to receive
+  // the sync payload. Repeat a few times in case its listener wasn't
+  // attached in the same instant this window finished loading.
+  var tries = 0;
+  pingId = setInterval(function(){
+    tries++;
+    try{ window.opener.postMessage({ type:'mchep-relay-ready' }, '*'); }catch(e){}
+    if (tries >= 20 && pingId){ clearInterval(pingId); pingId = null; }
+  }, 250);
+})();
+</script>
+</body>
+</html>
