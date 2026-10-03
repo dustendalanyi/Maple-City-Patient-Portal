@@ -26,7 +26,12 @@
   body{margin:0;min-height:100vh;background:var(--paper);color:var(--ink);
     font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     display:flex;flex-direction:column}
-  .hero{background:linear-gradient(135deg,var(--navy),var(--accent));color:#fff;padding:34px 20px 30px;text-align:center}
+  .hero{background:linear-gradient(135deg,var(--navy),var(--accent));color:#fff;padding:34px 20px 30px;text-align:center;
+    /* On an iPhone with a notch/Dynamic Island, this page runs full-screen with
+       no browser chrome once added to the home screen, so the gold header has
+       to push itself down below the notch/status bar manually — otherwise the
+       top of it gets cut off underneath the clock/camera area. */
+    padding-top:calc(34px + env(safe-area-inset-top, 0px))}
   .hero h1{margin:0 0 4px;font-size:21px}
   .hero p{margin:0;opacity:.85;font-size:13.5px}
   .wrap{flex:1;max-width:420px;margin:0 auto;width:100%;padding:26px 18px 60px}
